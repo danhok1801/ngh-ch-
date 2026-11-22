@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# iOS local project
+ios/
+
+# Environment / OS files
+.DS_Store
+Thumbs.db
+*.log

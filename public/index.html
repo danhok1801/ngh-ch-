@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Boitube">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.png">
+<title>Boitube</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#272727;
+    --text:#fff;--subtext:#aaa;--red:#ff0000;--border:#333;
+    --radius:10px;--safe-top:env(safe-area-inset-top);
+    --safe-bottom:env(safe-area-inset-bottom);
+  }
+  html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;height:100%;overflow-x:hidden}
+  
+  /* ─── Header ─── */
+  #header{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    background:var(--bg);
+    padding:calc(var(--safe-top) + 8px) 12px 8px;
+    display:flex;align-items:center;gap:10px;
+    border-bottom:1px solid var(--border);
+  }
+  #logo{font-size:20px;font-weight:800;color:var(--red);white-space:nowrap;letter-spacing:-0.5px;cursor:pointer}
+  #logo span{color:var(--text)}
+  #searchWrap{flex:1;display:flex;gap:8px}
+  #searchInput{
+    flex:1;background:var(--surface2);border:1px solid var(--border);
+    color:var(--text);padding:9px 14px;border-radius:999px;font-size:15px;outline:none;
+    -webkit-appearance:none;
+  }
+  #searchInput::placeholder{color:var(--subtext)}
+  #searchBtn{
+    background:var(--surface2);border:1px solid var(--border);
+    color:var(--text);padding:9px 14px;border-radius:999px;font-size:15px;
+    cursor:pointer;white-space:nowrap;
+  }
+  #searchBtn:active{background:var(--surface)}
+
+  /* ─── Category Chips ─── */
+  #chipsWrap{
+    position:fixed;top:calc(var(--safe-top) + 54px);left:0;right:0;z-index:90;
+    background:var(--bg);padding:8px 12px;display:flex;gap:8px;
+    overflow-x:auto;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  #chipsWrap::-webkit-scrollbar{display:none}
+  .chip{
+    background:var(--surface2);color:var(--text);border:1px solid var(--border);
+    padding:6px 12px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;
+    flex-shrink:0;transition:background 0.2s;
+  }
+  .chip.active{background:var(--text);color:#000;border-color:var(--text);font-weight:600}
+
+  /* ─── Main ─── */
+  #main{padding-top:110px;padding-bottom:calc(var(--safe-bottom) + 20px);min-height:100vh}
+
+  /* ─── Grid ─── */
+  #grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:12px;padding:12px;
+  }
+  .card{cursor:pointer;border-radius:var(--radius);overflow:hidden;background:var(--surface);transition:transform .15s}
+  .card:active{transform:scale(0.97)}
+  .thumb-wrap{position:relative;aspect-ratio:16/9;overflow:hidden;background:#111}
+  .thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+  .dur{
+    position:absolute;bottom:5px;right:6px;
+    background:rgba(0,0,0,.85);color:#fff;font-size:11px;
+    padding:1px 5px;border-radius:4px;font-weight:600;
+  }
+  .info{padding:8px 10px 10px}
+  .info h3{font-size:13px;line-height:1.4;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .info p{font-size:11px;color:var(--subtext);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ─── Player View ─── */
+  #player-view{display:none;flex-direction:column;min-height:100vh}
+  #player-view.active{display:flex}
+  #backBtn{
+    background:none;border:none;color:var(--text);font-size:28px;
+    padding:10px 14px;cursor:pointer;align-self:flex-start;
+  }
+  #videoWrap{width:100%;background:#000;position:relative}
+  #videoWrap video{width:100%;max-height:60vh;display:block;background:#000}
+  #videoTitle{font-size:16px;font-weight:700;padding:12px 14px 4px;line-height:1.4}
+  #videoMeta{font-size:12px;color:var(--subtext);padding:0 14px 10px}
+  #videoDesc{font-size:13px;color:var(--subtext);padding:0 14px 10px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow:hidden}
+  #readMore{color:var(--red);background:none;border:none;padding:0 14px 16px;font-size:13px;cursor:pointer;display:none;text-align:left}
+
+  /* Up Next / Đề xuất */
+  #upNextHeader{font-size:15px;font-weight:700;padding:12px 14px 8px;border-top:1px solid var(--border)}
+  #upNextList{display:flex;flex-direction:column;gap:10px;padding:0 14px 30px}
+  .rel-card{display:flex;gap:10px;cursor:pointer;background:var(--surface);border-radius:8px;overflow:hidden}
+  .rel-card:active{transform:scale(0.98)}
+  .rel-thumb{position:relative;width:120px;aspect-ratio:16/9;flex-shrink:0;background:#111}
+  .rel-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .rel-info{flex:1;padding:6px 8px;display:flex;flex-direction:column;justify-content:center}
+  .rel-info h4{font-size:12px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
+  .rel-info p{font-size:11px;color:var(--subtext);margin-top:4px}
+
+  /* ─── Spinner ─── */
+  #spinner{display:none;justify-content:center;padding:40px}
+  #spinner.on{display:flex}
+  .spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ─── Loading video ─── */
+  #loadingVideo{display:none;text-align:center;padding:14px;color:var(--subtext);font-size:14px;background:#141414}
+  #loadingVideo.on{display:block}
+
+  /* ─── Empty / Error ─── */
+  #msg{text-align:center;padding:60px 20px;color:var(--subtext);font-size:15px;display:none}
+  #msg.on{display:block}
+
+  ::-webkit-scrollbar{width:0}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <div id="logo" onclick="goHome()">Boi<span>tube</span></div>
+  <div id="searchWrap">
+    <input id="searchInput" type="search" placeholder="Tìm video trên Boitube..." autocomplete="off" enterkeyhint="search">
+    <button id="searchBtn">Tìm</button>
+  </div>
+</div>
+
+<!-- Category Chips Bar -->
+<div id="chipsWrap">
+  <div class="chip active" onclick="switchCategory('trending', this)">🔥 Thịnh hành</div>
+  <div class="chip" onclick="switchCategory('music', this)">🎵 Âm nhạc</div>
+  <div class="chip" onclick="switchCategory('gaming', this)">🎮 Gaming</div>
+  <div class="chip" onclick="switchCategory('chill', this)">☕ Chill Lofi</div>
+  <div class="chip" onclick="switchCategory('news', this)">📰 Tin tức</div>
+  <div class="chip" onclick="switchCategory('podcast', this)">🎙️ Podcast</div>
+</div>
+
+<!-- Main: Danh sách kết quả -->
+<div id="main">
+  <div id="spinner"><div class="spin"></div></div>
+  <div id="msg"></div>
+  <div id="grid"></div>
+</div>
+
+<!-- Player View -->
+<div id="player-view">
+  <button id="backBtn">&#8592;</button>
+  <div id="videoWrap">
+    <video id="vid" controls playsinline webkit-playsinline preload="auto" controlsList="nodownload"></video>
+  </div>
+  <div id="loadingVideo">Đang chuẩn bị stream... ⏳</div>
+  <div id="videoTitle"></div>
+  <div id="videoMeta"></div>
+  <div id="videoDesc"></div>
+  <button id="readMore">Xem thêm ▼</button>
+
+  <!-- Đề xuất tiếp theo -->
+  <div id="upNextHeader">Đề xuất tiếp theo</div>
+  <div id="upNextList"></div>
+</div>
+
+<script>
+const BASE = '';
+
+// ─── Elements ───────────────────────────────────────────────────────────────
+const $search = document.getElementById('searchInput');
+const $btn = document.getElementById('searchBtn');
+const $grid = document.getElementById('grid');
+const $spinner = document.getElementById('spinner');
+const $msg = document.getElementById('msg');
+const $main = document.getElementById('main');
+const $chipsWrap = document.getElementById('chipsWrap');
+const $header = document.getElementById('header');
+const $playerView = document.getElementById('player-view');
+const $vid = document.getElementById('vid');
+const $back = document.getElementById('backBtn');
+const $vTitle = document.getElementById('videoTitle');
+const $vMeta = document.getElementById('videoMeta');
+const $vDesc = document.getElementById('videoDesc');
+const $readMore = document.getElementById('readMore');
+const $loadingVideo = document.getElementById('loadingVideo');
+const $upNextList = document.getElementById('upNextList');
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let currentResults = [];
+let descFull = '';
+let currentCategory = 'trending';
+
+// ─── Load Feed (Đề xuất trang chủ) ──────────────────────────────────────────
+async function loadFeed(category = 'trending') {
+  currentCategory = category;
+  showSpinner(true);
+  $grid.innerHTML = '';
+  $msg.classList.remove('on');
+
+  try {
+    const res = await fetch(`${BASE}/api/feed?category=${encodeURIComponent(category)}`);
+    const data = await res.json();
+    currentResults = data;
+    renderGrid(data);
+  } catch (e) {
+    showMsg('Lỗi kết nối tải video đề xuất 🙁');
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function switchCategory(cat, el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  $search.value = '';
+  loadFeed(cat);
+}
+
+function goHome() {
+  $search.value = '';
+  $vid.pause();
+  $vid.removeAttribute('src');
+  $playerView.classList.remove('active');
+  $main.style.display = '';
+  $chipsWrap.style.display = 'flex';
+  $header.style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  loadFeed(currentCategory);
+}
+
+// ─── Search ──────────────────────────────────────────────────────────────────
+async function doSearch(q) {
+  if (!q.trim()) return;
+  showSpinner(true);
+  $grid.innerHTML = '';
+  $msg.classList.remove('on');
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+
+  try {
+    const res = await fetch(`${BASE}/api/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    currentResults = data;
+    renderGrid(data);
+  } catch (e) {
+    showMsg('Lỗi kết nối server 😞');
+  } finally {
+    showSpinner(false);
+  }
+}
+
+function renderGrid(videos) {
+  if (!videos || !videos.length) { showMsg('Không tìm thấy kết quả 🙁'); return; }
+  $grid.innerHTML = videos.map((v, i) => `
+    <div class="card" onclick="openVideo(${i})">
+      <div class="thumb-wrap">
+        <img src="${v.thumbnail}" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg'">
+        <div class="dur">${fmtDur(v.duration)}</div>
+      </div>
+      <div class="info">
+        <h3>${escHtml(v.title)}</h3>
+        <p>${escHtml(v.author)} · ${fmtViews(v.views)}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Video Events ────────────────────────────────────────────────────────────
+$vid.onwaiting = () => {
+  $loadingVideo.textContent = 'Đang tải đệm dữ liệu... ⏳';
+  $loadingVideo.classList.add('on');
+};
+$vid.onplaying = () => {
+  $loadingVideo.classList.remove('on');
+};
+$vid.oncanplay = () => {
+  $loadingVideo.classList.remove('on');
+};
+$vid.onerror = () => {
+  const err = $vid.error;
+  let msg = 'Lỗi phát video';
+  if (err) {
+    if (err.code === 1) msg = 'Đã hủy tải';
+    else if (err.code === 2) msg = 'Lỗi kết nối mạng';
+    else if (err.code === 3) msg = 'Lỗi giải mã video';
+    else if (err.code === 4) msg = 'Nguồn stream không hỗ trợ hoặc bị chặn';
+  }
+  $loadingVideo.textContent = msg + ' ⚠️';
+  $loadingVideo.classList.add('on');
+};
+
+// ─── Open Video ───────────────────────────────────────────────────────────────
+async function openVideo(idx) {
+  const v = currentResults[idx];
+  $main.style.display = 'none';
+  $chipsWrap.style.display = 'none';
+  $playerView.classList.add('active');
+  $header.style.display = 'none';
+  window.scrollTo(0, 0);
+
+  $vTitle.textContent = v.title;
+  $vMeta.textContent = `${escHtml(v.author)} · ${fmtViews(v.views)} lượt xem`;
+  $loadingVideo.textContent = 'Đang lấy stream Boitube... ⏳';
+  $loadingVideo.classList.add('on');
+
+  $vid.pause();
+  $vid.removeAttribute('src');
+  $vid.load();
+
+  // Thêm thông tin mô tả
+  fetch(`${BASE}/api/video/${v.videoId}`)
+    .then(r => r.json())
+    .then(info => {
+      descFull = info.description || '';
+      if (descFull) {
+        $vDesc.textContent = descFull.slice(0, 200);
+        if (descFull.length > 200) {
+          $readMore.style.display = 'block';
+          $readMore.textContent = 'Xem thêm ▼';
+        }
+      }
+    })
+    .catch(() => {});
+
+  // Stream qua proxy server (hỗ trợ HTTP 206 Partial Content cho Safari iOS)
+  $vid.src = `${BASE}/api/stream/${v.videoId}`;
+  $vid.load();
+  $vid.play().catch(e => {
+    console.log('Play triggered:', e.message);
+  });
+
+  // Render danh sách Đề xuất tiếp theo (các video còn lại trong feed)
+  renderUpNext(idx);
+}
+
+function renderUpNext(currentIdx) {
+  const others = currentResults.filter((_, i) => i !== currentIdx);
+  $upNextList.innerHTML = others.map(v => {
+    const origIdx = currentResults.indexOf(v);
+    return `
+      <div class="rel-card" onclick="openVideo(${origIdx})">
+        <div class="rel-thumb">
+          <img src="${v.thumbnail}" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg'">
+          <div class="dur">${fmtDur(v.duration)}</div>
+        </div>
+        <div class="rel-info">
+          <h4>${escHtml(v.title)}</h4>
+          <p>${escHtml(v.author)} · ${fmtViews(v.views)}</p>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── Back ─────────────────────────────────────────────────────────────────────
+$back.addEventListener('click', () => {
+  $vid.pause();
+  $vid.removeAttribute('src');
+  $playerView.classList.remove('active');
+  $main.style.display = '';
+  $chipsWrap.style.display = 'flex';
+  $header.style.display = '';
+  $vDesc.textContent = '';
+  $readMore.style.display = 'none';
+  descFull = '';
+});
+
+// ─── Read More ────────────────────────────────────────────────────────────────
+$readMore.addEventListener('click', () => {
+  if ($vDesc.textContent.length < descFull.length) {
+    $vDesc.textContent = descFull;
+    $readMore.textContent = 'Thu gọn ▲';
+  } else {
+    $vDesc.textContent = descFull.slice(0, 200);
+    $readMore.textContent = 'Xem thêm ▼';
+  }
+});
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+$btn.addEventListener('click', () => doSearch($search.value));
+$search.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch($search.value); });
+
+// ─── Init: Tự động tải video đề xuất khi mở app ──────────────────────────────
+loadFeed('trending');
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function showSpinner(on) { $spinner.classList.toggle('on', on); }
+function showMsg(t) { $msg.textContent = t; $msg.classList.add('on'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDur(s) {
+  if (!s) return '';
+  const m = Math.floor(s / 60), sec = s % 60;
+  const h = Math.floor(m / 60);
+  if (h) return `${h}:${String(m % 60).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+function fmtViews(n) {
+  if (!n) return '';
+  if (n >= 1e9) return (n/1e9).toFixed(1) + 'T';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'Tr';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'N';
+  return n;
+}
+</script>
+</body>
+</html>
