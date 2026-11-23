@@ -24,6 +24,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Version check endpoint
+app.get('/api/version', (req, res) => {
+  res.json({ status: 'ok', version: '1.0.2', engine: 'android-innertube-skip-webpage' });
+});
+
 // ─── API: Video đề xuất trang chủ (Trending / Categories) ─────────────────────
 app.get('/api/feed', (req, res) => {
   const cat = (req.query.category || 'trending').toLowerCase();
