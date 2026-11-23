@@ -8,8 +8,8 @@ const { networkInterfaces } = require('os');
 const app = express();
 const PORT = 3000;
 
-// Flag yt-dlp tối ưu: giả lập player_client=android để lấy stream trực tiếp không bị 403 / PO-token
-const YT_FLAGS = `--extractor-args "youtube:player_client=android" --no-playlist`;
+// Flag yt-dlp tối ưu: giả lập player_client=android và bỏ qua tải webpage để tránh bị YouTube chặn 429 trên Cloud/Datacenter IP
+const YT_FLAGS = `--extractor-args "youtube:player_client=android;player_skip=webpage,configs" --no-playlist`;
 
 // Cache RAM
 const urlCache = new Map();  // videoId -> { url, expireTime }
