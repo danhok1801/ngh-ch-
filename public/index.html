@@ -154,8 +154,13 @@
   <button id="backBtn">&#8592;</button>
   <div id="videoWrap">
     <video id="vid" controls playsinline webkit-playsinline preload="auto" controlsList="nodownload"></video>
+    <iframe id="ytIframe" style="display:none;width:100%;aspect-ratio:16/9;border:none;background:#000;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <div id="loadingVideo">Đang chuẩn bị stream... ⏳</div>
+  <div id="playerControls" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;">
+    <div id="engineBadge" style="font-size:12px;color:var(--subtext);background:var(--surface2);padding:4px 10px;border-radius:6px;border:1px solid var(--border);">⚡ Chế độ trực tiếp</div>
+    <button id="toggleEngineBtn" style="font-size:12px;color:var(--text);background:var(--surface2);border:1px solid var(--border);padding:5px 12px;border-radius:6px;cursor:pointer;">Đổi nguồn phát 🔄</button>
+  </div>
   <div id="videoTitle"></div>
   <div id="videoMeta"></div>
   <div id="videoDesc"></div>
@@ -187,11 +192,16 @@ const $vDesc = document.getElementById('videoDesc');
 const $readMore = document.getElementById('readMore');
 const $loadingVideo = document.getElementById('loadingVideo');
 const $upNextList = document.getElementById('upNextList');
+const $ytIframe = document.getElementById('ytIframe');
+const $engineBadge = document.getElementById('engineBadge');
+const $toggleEngineBtn = document.getElementById('toggleEngineBtn');
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let currentResults = [];
 let descFull = '';
 let currentCategory = 'trending';
+let currentActiveVideo = null;
+let currentEngine = 'direct'; // 'direct' or 'embed'
 
 // ─── Load Feed (Đề xuất trang chủ) ──────────────────────────────────────────
 async function loadFeed(category = 'trending') {
@@ -267,6 +277,45 @@ function renderGrid(videos) {
   `).join('');
 }
 
+// ─── Dual-Engine Player Controls ─────────────────────────────────────────────
+function switchToEmbed(v) {
+  currentEngine = 'embed';
+  $vid.pause();
+  $vid.removeAttribute('src');
+  $vid.style.display = 'none';
+
+  $ytIframe.style.display = 'block';
+  $ytIframe.src = `https://www.youtube-nocookie.com/embed/${v.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
+
+  $loadingVideo.textContent = 'Đang phát qua trình phát dự phòng 🌐';
+  setTimeout(() => $loadingVideo.classList.remove('on'), 1500);
+  $engineBadge.textContent = '🌐 Chế độ dự phòng (Nhúng)';
+}
+
+function switchToDirect(v) {
+  currentEngine = 'direct';
+  $ytIframe.removeAttribute('src');
+  $ytIframe.style.display = 'none';
+
+  $vid.style.display = 'block';
+  $vid.src = `${BASE}/api/stream/${v.videoId}`;
+  $vid.load();
+  $vid.play().catch(e => console.log('Play triggered:', e.message));
+
+  $loadingVideo.textContent = 'Đang lấy stream Boitube... ⏳';
+  $loadingVideo.classList.add('on');
+  $engineBadge.textContent = '⚡ Chế độ trực tiếp';
+}
+
+$toggleEngineBtn.addEventListener('click', () => {
+  if (!currentActiveVideo) return;
+  if (currentEngine === 'direct') {
+    switchToEmbed(currentActiveVideo);
+  } else {
+    switchToDirect(currentActiveVideo);
+  }
+});
+
 // ─── Video Events ────────────────────────────────────────────────────────────
 $vid.onwaiting = () => {
   $loadingVideo.textContent = 'Đang tải đệm dữ liệu... ⏳';
@@ -279,21 +328,20 @@ $vid.oncanplay = () => {
   $loadingVideo.classList.remove('on');
 };
 $vid.onerror = () => {
-  const err = $vid.error;
-  let msg = 'Lỗi phát video';
-  if (err) {
-    if (err.code === 1) msg = 'Đã hủy tải';
-    else if (err.code === 2) msg = 'Lỗi kết nối mạng';
-    else if (err.code === 3) msg = 'Lỗi giải mã video';
-    else if (err.code === 4) msg = 'Nguồn stream không hỗ trợ hoặc bị chặn';
-  }
-  $loadingVideo.textContent = msg + ' ⚠️';
+  console.warn('Direct stream error, auto-fallback to embed player...');
+  $loadingVideo.textContent = 'Nguồn trực tiếp bị giới hạn. Đang chuyển sang trình phát dự phòng... 🔄';
   $loadingVideo.classList.add('on');
+  setTimeout(() => {
+    if (currentActiveVideo) {
+      switchToEmbed(currentActiveVideo);
+    }
+  }, 400);
 };
 
 // ─── Open Video ───────────────────────────────────────────────────────────────
 async function openVideo(idx) {
   const v = currentResults[idx];
+  currentActiveVideo = v;
   $main.style.display = 'none';
   $chipsWrap.style.display = 'none';
   $playerView.classList.add('active');
@@ -302,12 +350,6 @@ async function openVideo(idx) {
 
   $vTitle.textContent = v.title;
   $vMeta.textContent = `${escHtml(v.author)} · ${fmtViews(v.views)} lượt xem`;
-  $loadingVideo.textContent = 'Đang lấy stream Boitube... ⏳';
-  $loadingVideo.classList.add('on');
-
-  $vid.pause();
-  $vid.removeAttribute('src');
-  $vid.load();
 
   // Thêm thông tin mô tả
   fetch(`${BASE}/api/video/${v.videoId}`)
@@ -324,12 +366,12 @@ async function openVideo(idx) {
     })
     .catch(() => {});
 
-  // Stream qua proxy server (hỗ trợ HTTP 206 Partial Content cho Safari iOS)
-  $vid.src = `${BASE}/api/stream/${v.videoId}`;
-  $vid.load();
-  $vid.play().catch(e => {
-    console.log('Play triggered:', e.message);
-  });
+  // Khởi động phát
+  if (currentEngine === 'embed') {
+    switchToEmbed(v);
+  } else {
+    switchToDirect(v);
+  }
 
   // Render danh sách Đề xuất tiếp theo (các video còn lại trong feed)
   renderUpNext(idx);
@@ -358,6 +400,10 @@ function renderUpNext(currentIdx) {
 $back.addEventListener('click', () => {
   $vid.pause();
   $vid.removeAttribute('src');
+  $ytIframe.removeAttribute('src');
+  $ytIframe.style.display = 'none';
+  $vid.style.display = 'block';
+  currentActiveVideo = null;
   $playerView.classList.remove('active');
   $main.style.display = '';
   $chipsWrap.style.display = 'flex';
