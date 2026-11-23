@@ -24,6 +24,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// Test clients endpoint to diagnose which client works on Render
+app.get('/api/test-clients/:videoId', (req, res) => {
+  const { videoId } = req.params;
+  const clients = ['android', 'ios', 'tv_embedded', 'mweb', 'web_embedded'];
+  const results = {};
+  let done = 0;
+
+  clients.forEach(c => {
+    const cmd = `yt-dlp --extractor-args "youtube:player_client=${c}" -f "18/b[ext=mp4]/b" --get-url "https://www.youtube.com/watch?v=${videoId}"`;
+    exec(cmd, { timeout: 20000 }, (err, stdout, stderr) => {
+      done++;
+      if (err) {
+        results[c] = { success: false, error: (stderr || err.message).slice(0, 150) };
+      } else {
+        const url = (stdout || '').trim().split('\n').filter(l => l.startsWith('http'))[0];
+        results[c] = { success: !!url, url: url ? url.slice(0, 60) + '...' : null };
+      }
+      if (done === clients.length) {
+        res.json({ videoId, results });
+      }
+    });
+  });
+});
+
 // Version check endpoint
 app.get('/api/version', (req, res) => {
   res.json({ status: 'ok', version: '1.0.2', engine: 'android-innertube-skip-webpage' });
